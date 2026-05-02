@@ -180,19 +180,30 @@ export default function NourishSelectPage() {
   }, [toastTimer]);
 
   // ── IMAGE ENGINE ───────────────────────────────────────────────────────────
-  const fetchMealImage = async (query: string) => {
-    const key = process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY;
-    if (!key) return;
-    try {
-      const res = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query + ' food')}&orientation=landscape&per_page=1`,
-        { headers: { Authorization: `Client-ID ${key}` } }
-      );
-      const data = await res.json();
-      const url = data?.results?.[0]?.urls?.regular;
-      if (url) setMealImage(url);
-    } catch { /* keep existing */ }
+ const fetchMealImage = async (query: string, cuisine?: string) => {
+  const key = process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY;
+  if (!key) return;
+
+  const tryFetch = async (q: string) => {
+    const res = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&orientation=landscape&per_page=3`,
+      { headers: { Authorization: `Client-ID ${key}` } }
+    );
+    const data = await res.json();
+    return data?.results ?? [];
   };
+
+  try {
+    let results = await tryFetch(query);
+    if (!results.length && cuisine) results = await tryFetch(`${cuisine} food dish`);
+    if (!results.length) results = await tryFetch('Nigerian food dish');
+    if (results.length) {
+      const pick = results[Math.floor(Math.random() * results.length)];
+      const url = pick?.urls?.regular;
+      if (url) setMealImage(url);
+    }
+  } catch { /* keep existing image */ }
+};
 
   // ── SPIN MEAL ──────────────────────────────────────────────────────────────
   const spinMeal = async () => {
