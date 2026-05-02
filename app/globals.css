@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Playfair Display", serif;
+  --font-sans: "DM Sans", "Outfit", sans-serif;
+  --color-cream: #FBF6EE;
+  --color-espresso: #1C1008;
+  --color-terra: #C9532A;
+}
+
+@layer base {
+  body { @apply bg-cream text-espresso font-sans antialiased; }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(25px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-card { animation: cardIn 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
