@@ -83,7 +83,7 @@ export default function NourishSelectPage() {
 
   // ── Filters ──────────────────────────────────────────────────────────────
   const [country, setCountry] = useState<CountryKey>('ng');
-  const [vibe,    setVibe   ] = useState('all');
+const [vibe, setVibe ] = useState('everyday'); // ⚡ Set default to Everyday
   const [time,    setTime   ] = useState<TimeKey>('lunch');
   const [diet,    setDiet   ] = useState('All');
 
@@ -154,7 +154,7 @@ const [isSubscribed, setIsSubscribed] = useState(false);   // 💎 Subscription 
           const picked = pickMeal(
             savedCountry || 'ng', 
             savedTime || 'lunch', 
-            'all', 
+            'everyday', 
             'All', 
             lastMeal
           );
