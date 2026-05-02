@@ -213,7 +213,7 @@ export default function NourishSelectPage() {
     if (picked) {
       setMeal(picked);
       storage.set('bubu_last_meal', picked.name);
-      await fetchMealImage(picked.unsplashQuery || picked.name);
+     await fetchMealImage(picked.unsplashQuery || picked.name, picked.cuisine);
       setTimeout(() => setMealIn(true), 50);
     }
     if (!onboarded) { setOnboarded(true); localStorage.setItem('bubu_onboarded', 'true'); }
