@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
+    "@netlify/functions": "^5.2.0",
     "@netlify/plugin-nextjs": "^5.15.10",
     "dom-to-image-more": "^3.7.2",
     "html-to-image": "^1.11.13",
