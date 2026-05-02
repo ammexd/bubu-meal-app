@@ -108,6 +108,8 @@ export default function NourishSelectPage() {
   const [showSettings,   setShowSettings  ] = useState(false);
   const [showPlanner,    setShowPlanner   ] = useState(false);
   const [showHistory,    setShowHistory   ] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true); // 💎 Guard State
+const [isSubscribed, setIsSubscribed] = useState(false);   // 💎 Subscription State
   const [weeklyPlan,     setWeeklyPlan    ] = useState<Record<string, Record<string, Meal>> | null>(null);
   const [planFilters,    setPlanFilters   ] = useState<PlanFilters | null>(null);
   const [toast,          setToast         ] = useState('');
@@ -122,84 +124,49 @@ export default function NourishSelectPage() {
   // ─────────────────────────────────────────────────────────────────────────
   // INIT
   // ─────────────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    // Auth guard
-    if (localStorage.getItem('bubu_logged_in') !== 'true') {
-      router.push('/login');
-      return;
-    }
-
-    // Onboarding
-    setOnboarded(localStorage.getItem('bubu_onboarded') === 'true');
-    setWaterHintShown(localStorage.getItem('bubu_water_hint_shown') === 'true');
-
-    // Preferences
-    setEmail(localStorage.getItem('bubu_email') || '');
-    setDarkMode(localStorage.getItem('bubu_dark_mode') === 'true');
-    setAutoRefresh(localStorage.getItem('bubu_auto_refresh') === 'true');
-
-    const savedCountry = localStorage.getItem('bubu_country') as CountryKey | null;
-    if (savedCountry) setCountry(savedCountry);
-
-    const savedTime = localStorage.getItem('bubu_time') as TimeKey | null;
-    setTime(savedTime ?? smartTime());
-
-    // Streak logic
-    const today = new Date().toDateString();
-    const lastVisit = localStorage.getItem('bubu_last_visit');
-    const savedStreak = Number(localStorage.getItem('bubu_streak') || 0);
-    if (lastVisit === today) {
-      setStreak(savedStreak);
-    } else {
-      const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-      const newStreak = lastVisit === yesterday.toDateString() ? savedStreak + 1 : 1;
-      setStreak(newStreak);
-      localStorage.setItem('bubu_streak', String(newStreak));
-      localStorage.setItem('bubu_last_visit', today);
-    }
-
-    // Daily water reset
-    const lastWaterDate = localStorage.getItem('bubu_water_date');
-    if (lastWaterDate !== today) {
-      setWater(0);
-      localStorage.setItem('bubu_water', '0');
-      localStorage.setItem('bubu_water_date', today);
-    } else {
-      setWater(Number(localStorage.getItem('bubu_water') || 0));
-    }
-
-    // Calorie log (reset daily)
-    const lastCalDate = localStorage.getItem('bubu_cal_date');
-    if (lastCalDate !== today) {
-      setLoggedMeals([]);
-      setTotalCal(0);
-      localStorage.setItem('bubu_cal_date', today);
-      localStorage.setItem('bubu_logged_meals', '[]');
-    } else {
-      const saved = localStorage.getItem('bubu_logged_meals');
-      if (saved) {
-        const parsed: LoggedMeal[] = JSON.parse(saved);
-        setLoggedMeals(parsed);
-        setTotalCal(parsed.reduce((s, m) => s + m.cal, 0));
+   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // 1. THE GUARD: Check login first and stop if failed
+      const isLoggedIn = localStorage.getItem('bubu_logged_in') === 'true';
+      if (!isLoggedIn) {
+        router.push('/login');
+        return; 
       }
-    }
 
-    // Weekly plan + the filters it was generated with
-    const savedPlan = localStorage.getItem('bubu_weekly_plan');
-    if (savedPlan) setWeeklyPlan(JSON.parse(savedPlan));
+      // 2. DEFINE DATA: Pull from storage so the variables exist for later steps
+      const savedEmail = localStorage.getItem('bubu_email') || '';
+      const savedWater = Number(localStorage.getItem('bubu_water') || 0);
+      const savedSub = localStorage.getItem('bubu_subscribed') === 'true';
+      const savedCountry = localStorage.getItem('bubu_country') as CountryKey | null;
+      const savedTime = localStorage.getItem('bubu_time') as TimeKey | null;
 
-    const savedPlanFilters = localStorage.getItem('bubu_plan_filters');
-    if (savedPlanFilters) setPlanFilters(JSON.parse(savedPlanFilters));
+      // 3. APPLY TO UI: Update your component states
+      setEmail(savedEmail);
+      setWater(savedWater);
+      setIsSubscribed(savedSub);
+      if (savedCountry) setCountry(savedCountry);
+      if (savedTime) setTime(savedTime || smartTime());
 
-    // Auto-refresh
-    if (localStorage.getItem('bubu_auto_refresh') === 'true') {
-      setTimeout(() => {
-        const lastMeal = storage.get('bubu_last_meal');
-        const picked = pickMeal(savedCountry || 'ng', savedTime as TimeKey || 'lunch', 'all', 'All', lastMeal);
-        if (picked) { setMeal(picked); storage.set('bubu_last_meal', picked.name); }
-      }, 600);
+      // 4. INTELLIGENT AUTO-REFRESH: Uses the 'saved' variables defined above
+      if (localStorage.getItem('bubu_auto_refresh') === 'true') {
+        setTimeout(() => {
+          const lastMeal = storage.get('bubu_last_meal');
+          const picked = pickMeal(
+            savedCountry || 'ng', 
+            savedTime || 'lunch', 
+            'all', 
+            'All', 
+            lastMeal
+          );
+          if (picked) {
+            setMeal(picked);
+            storage.set('bubu_last_meal', picked.name);
+          }
+        }, 600);
+      }
+
+      // 5. THE MASTER KEY: Reveal the dashboard once loading is complete
+      setIsCheckingAuth(false);
     }
   }, [router]);
 
@@ -409,6 +376,10 @@ export default function NourishSelectPage() {
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
+   // ⚡ If we are still checking the ID card, show a blank screen to prevent the flicker
+  if (isCheckingAuth) {
+    return <div className={`${bg} min-h-screen`} />;
+  }
   return (
     <div className={`${bg} ${txt} min-h-screen font-sans transition-colors duration-300`}>
 
@@ -816,6 +787,16 @@ export default function NourishSelectPage() {
               </select>
             </Field>
             <ToggleRow label="Auto-Refresh on Visit" active={autoRefresh} onToggle={() => setAutoRefresh(!autoRefresh)} sub={sub} />
+              <ToggleRow 
+  label="Daily Email Recommendations" 
+  active={isSubscribed} 
+  onToggle={() => {
+    const next = !isSubscribed;
+    setIsSubscribed(next);
+    localStorage.setItem('bubu_subscribed', String(next));
+  }} 
+  sub={sub} 
+/>
             <ToggleRow label="Dark Mode" active={darkMode} onToggle={() => setDarkMode(!darkMode)} sub={sub} />
           </div>
           <div className="flex gap-3 mt-8">
@@ -1041,11 +1022,14 @@ function Modal({ children, onClose, dk, wide }: {
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
       <div className={`${dk ? 'bg-[#1A1208]' : 'bg-white'} rounded-[2rem] ${wide ? 'max-w-5xl' : 'max-w-md'} w-full max-h-[90vh] shadow-2xl border ${dk ? 'border-white/5' : 'border-[#E8E2D2]'} animate-in fade-in zoom-in-95 duration-300 relative flex flex-col`}>
-        <button
-          onClick={onClose}
-          className="absolute -top-5 -right-5 w-14 h-14 rounded-full flex items-center justify-center text-3xl shadow-2xl transition-all active:scale-90 z-[110] backdrop-blur-md border-2 bg-[#C9532A] text-white hover:bg-[#A93F1F] border-[#C9532A]/50">
-          ✕
-        </button>
+       <button
+  onClick={onClose}
+  className="absolute -top-5 -right-5 w-14 h-14 rounded-full flex items-center justify-center text-3xl 
+  shadow-2xl transition-all active:scale-90 z-[110] backdrop-blur-md border-2 
+  bg-[#C9532A] text-white hover:bg-[#A93F1F] border-[#C9532A]/50"
+>
+  ✕
+</button>
         <div className="overflow-y-auto max-h-[90vh] p-8">
           {children}
         </div>
