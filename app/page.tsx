@@ -10,10 +10,6 @@ import {
   type Meal, type TimeKey, type CountryKey,
 } from './lib/foodBrain';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONSTANTS
-// ─────────────────────────────────────────────────────────────────────────────
-
 const COUNTRIES = [
   { id: 'ng', flag: '🇳🇬', name: 'Nigeria' },
   { id: 'za', flag: '🇿🇦', name: 'S. Africa' },
@@ -63,10 +59,6 @@ function smartTime(): TimeKey {
 }
 function pct(val: number, max: number) { return Math.min(100, Math.round((val / max) * 100)); }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN PAGE
-// ─────────────────────────────────────────────────────────────────────────────
-
 export default function NourishSelectPage() {
   const router = useRouter();
   const weeklyExportRef = useRef<HTMLDivElement>(null);
@@ -102,29 +94,24 @@ export default function NourishSelectPage() {
   const [toastTimer,     setToastTimer    ] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [onboarded,      setOnboarded     ] = useState(true);
   const [waterHintShown, setWaterHintShown] = useState(true);
+  const [spinCount,      setSpinCount     ] = useState(0);
 
-  const waterMsg = ['Start your day right 💙', 'Good start!', 'Keep going 💪', '¼ there!',
-                    'Halfway! ✨', 'More than half!', '¾ done!', 'Almost!', '🎉 Full hydration!'];
+  const waterMsg = ['Start your day right 💙','Good start!','Keep going 💪','¼ there!',
+                    'Halfway! ✨','More than half!','¾ done!','Almost there!','🎉 Full hydration!'];
 
-  // ── INIT ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const isLoggedIn = localStorage.getItem('bubu_logged_in') === 'true';
-    if (!isLoggedIn) { router.push('/login'); return; }
+    if (localStorage.getItem('bubu_logged_in') !== 'true') { router.push('/login'); return; }
 
-    const savedEmail   = localStorage.getItem('bubu_email') || '';
-    const savedWater   = Number(localStorage.getItem('bubu_water') || 0);
-    const savedSub     = localStorage.getItem('bubu_subscribed') === 'true';
-    const savedCountry = localStorage.getItem('bubu_country') as CountryKey | null;
-    const savedTime    = localStorage.getItem('bubu_time') as TimeKey | null;
-
-    setEmail(savedEmail);
-    setWater(savedWater);
-    setIsSubscribed(savedSub);
+    setEmail(localStorage.getItem('bubu_email') || '');
+    setWater(Number(localStorage.getItem('bubu_water') || 0));
+    setIsSubscribed(localStorage.getItem('bubu_subscribed') === 'true');
     setDarkMode(localStorage.getItem('bubu_dark_mode') === 'true');
     setAutoRefresh(localStorage.getItem('bubu_auto_refresh') === 'true');
     setOnboarded(localStorage.getItem('bubu_onboarded') === 'true');
     setWaterHintShown(localStorage.getItem('bubu_water_hint_shown') === 'true');
+    const savedCountry = localStorage.getItem('bubu_country') as CountryKey | null;
+    const savedTime    = localStorage.getItem('bubu_time') as TimeKey | null;
     if (savedCountry) setCountry(savedCountry);
     if (savedTime) setTime(savedTime);
 
@@ -167,11 +154,9 @@ export default function NourishSelectPage() {
         if (picked) { setMeal(picked); storage.set('bubu_last_meal', picked.name); }
       }, 600);
     }
-
     setIsCheckingAuth(false);
   }, [router]);
 
-  // ── TOAST ──────────────────────────────────────────────────────────────────
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     if (toastTimer) clearTimeout(toastTimer);
@@ -179,33 +164,29 @@ export default function NourishSelectPage() {
     setToastTimer(t);
   }, [toastTimer]);
 
-  // ── IMAGE ENGINE ───────────────────────────────────────────────────────────
- const fetchMealImage = async (query: string, cuisine?: string) => {
-  const key = process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY;
-  if (!key) return;
-
-  const tryFetch = async (q: string) => {
-    const res = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&orientation=landscape&per_page=3`,
-      { headers: { Authorization: `Client-ID ${key}` } }
-    );
-    const data = await res.json();
-    return data?.results ?? [];
+  const fetchMealImage = async (query: string, cuisine?: string) => {
+    const key = process.env.NEXT_PUBLIC_UNSPLASH_ACCESS_KEY;
+    if (!key) return;
+    const tryFetch = async (q: string) => {
+      const res = await fetch(
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&orientation=landscape&per_page=3`,
+        { headers: { Authorization: `Client-ID ${key}` } }
+      );
+      const data = await res.json();
+      return data?.results ?? [];
+    };
+    try {
+      let results = await tryFetch(query);
+      if (!results.length && cuisine) results = await tryFetch(`${cuisine} food dish`);
+      if (!results.length) results = await tryFetch('Nigerian food dish');
+      if (results.length) {
+        const pick = results[Math.floor(Math.random() * results.length)];
+        const url = pick?.urls?.regular;
+        if (url) setMealImage(url);
+      }
+    } catch { /* keep existing image */ }
   };
 
-  try {
-    let results = await tryFetch(query);
-    if (!results.length && cuisine) results = await tryFetch(`${cuisine} food dish`);
-    if (!results.length) results = await tryFetch('Nigerian food dish');
-    if (results.length) {
-      const pick = results[Math.floor(Math.random() * results.length)];
-      const url = pick?.urls?.regular;
-      if (url) setMealImage(url);
-    }
-  } catch { /* keep existing image */ }
-};
-
-  // ── SPIN MEAL ──────────────────────────────────────────────────────────────
   const spinMeal = async () => {
     setLoading(true); setMealIn(false);
     const lastMeal = storage.get('bubu_last_meal');
@@ -213,14 +194,14 @@ export default function NourishSelectPage() {
     if (picked) {
       setMeal(picked);
       storage.set('bubu_last_meal', picked.name);
-     await fetchMealImage(picked.unsplashQuery || picked.name, picked.cuisine);
+      await fetchMealImage(picked.unsplashQuery || picked.name, picked.cuisine);
       setTimeout(() => setMealIn(true), 50);
     }
+    setSpinCount(c => c + 1);
     if (!onboarded) { setOnboarded(true); localStorage.setItem('bubu_onboarded', 'true'); }
     setLoading(false);
   };
 
-  // ── LOG MEAL ───────────────────────────────────────────────────────────────
   const logMeal = () => {
     if (!meal) return;
     const entry: LoggedMeal = { name: meal.name, cal: meal.nutrition.calories, time };
@@ -230,7 +211,7 @@ export default function NourishSelectPage() {
     localStorage.setItem('bubu_logged_meals', JSON.stringify(updated));
     localStorage.setItem('bubu_cal_date', new Date().toDateString());
     showToast(`✅ ${meal.name} logged — ${meal.nutrition.calories} kcal`);
-    if (newTotal >= DAILY_CAL_GOAL) confetti({ particleCount: 80, spread: 60, origin: { y: 0.5 } });
+    if (newTotal >= DAILY_CAL_GOAL) confetti({ particleCount: 120, spread: 70, origin: { y: 0.4 } });
   };
 
   const removeLoggedMeal = (i: number) => {
@@ -240,7 +221,6 @@ export default function NourishSelectPage() {
     localStorage.setItem('bubu_logged_meals', JSON.stringify(updated));
   };
 
-  // ── WATER ──────────────────────────────────────────────────────────────────
   const logGlass = (i: number) => {
     const next = i < water ? i : i + 1;
     setWater(next);
@@ -249,7 +229,6 @@ export default function NourishSelectPage() {
     if (next === 8) confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
   };
 
-  // ── EMAIL ──────────────────────────────────────────────────────────────────
   const sendEmail = async () => {
     if (!meal || !email) { showToast('⚠️ Spin a meal & enter your email first!'); return; }
     setEmailLoading(true);
@@ -271,7 +250,6 @@ export default function NourishSelectPage() {
     setEmailLoading(false);
   };
 
-  // ── WEEKLY PLANNER ─────────────────────────────────────────────────────────
   const generateWeeklyPlan = () => {
     const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
     const times: TimeKey[] = ['breakfast','lunch','dinner','snack'];
@@ -301,7 +279,6 @@ export default function NourishSelectPage() {
     } catch { showToast('Export failed — try again'); }
   };
 
-  // ── SETTINGS ───────────────────────────────────────────────────────────────
   const saveSettings = () => {
     localStorage.setItem('bubu_email', email);
     localStorage.setItem('bubu_country', country);
@@ -313,57 +290,74 @@ export default function NourishSelectPage() {
 
   const logout = () => { localStorage.removeItem('bubu_logged_in'); router.push('/login'); };
 
-  // ── THEME VARS ─────────────────────────────────────────────────────────────
-  const dk          = darkMode;
-  const bg          = dk ? 'bg-[#0D0A06]'               : 'bg-[#FBF6EE]';
-  const txt         = dk ? 'text-white'                  : 'text-[#1C1008]';
-  const card        = dk ? 'bg-[#1A1208] border-white/5' : 'bg-white border-[#E8E2D2]';
-  const sub         = dk ? 'text-white/40'               : 'text-[#A67C52]';
+  // ── THEME ────────────────────────────────────────────────────────────────
+  const dk = darkMode;
+  const bg          = dk ? 'bg-[#0A0804]'                : 'bg-[#FAF5EC]';
+  const txt         = dk ? 'text-[#F5EDD8]'              : 'text-[#1C1008]';
+  const card        = dk ? 'bg-[#141008] border-white/6'  : 'bg-white border-[#E8E0CC]';
+  const cardGlow    = dk
+    ? 'shadow-[0_2px_24px_rgba(0,0,0,0.4)]'
+    : 'shadow-[0_4px_32px_rgba(28,16,8,0.06)]';
+  const sub         = dk ? 'text-[#8B6D52]' : 'text-[#A67C52]';
   const input       = dk
-    ? 'bg-white/5 border-white/10 text-white placeholder-white/30'
-    : 'bg-[#FDF9F0] border-[#E8E2D2] text-[#1C1008] placeholder-[#A67C52]/50';
-  const pill        = dk ? 'bg-white/5 border-white/8 text-white' : 'bg-white border-[#E8E2D2] text-[#1C1008]';
-  const activePill  = 'bg-[#C9532A] border-[#C9532A] text-white';
-  const activeCountry = dk ? 'bg-white text-[#0D0A06]' : 'bg-[#1C1008] text-white';
-  const activeTime    = dk ? 'bg-white text-[#0D0A06]' : 'bg-[#1C1008] text-white';
-  const calPct        = pct(totalCal, DAILY_CAL_GOAL);
-  const calColor      = calPct < 60 ? '#5C7A5E' : calPct < 90 ? '#D4870D' : '#C9532A';
-  const countryName   = COUNTRIES.find(c => c.id === country)?.name ?? 'local';
-  const dayTotal      = (meals: Record<string, Meal>) =>
+    ? 'bg-white/5 border-white/10 text-[#F5EDD8] placeholder-white/25'
+    : 'bg-[#FDF9F0] border-[#E0D4BC] text-[#1C1008] placeholder-[#A67C52]/50';
+  const pill        = dk
+    ? 'bg-white/4 border-white/8 text-[#D4B896] hover:bg-white/8 hover:border-white/15'
+    : 'bg-white border-[#E8E0CC] text-[#3D2010] hover:border-[#C9532A]/30 hover:bg-[#FFF7F2]';
+  const activePill  = 'bg-[#C9532A] border-[#C9532A] text-white shadow-[0_4px_16px_rgba(201,83,42,0.38)]';
+  const activeCountry = dk
+    ? 'bg-[#F5EDD8] text-[#1C1008] border-[#F5EDD8] shadow-[0_4px_14px_rgba(245,237,216,0.18)]'
+    : 'bg-[#1C1008] text-white border-[#1C1008] shadow-[0_4px_14px_rgba(28,16,8,0.22)]';
+  const activeTime  = dk
+    ? 'bg-[#F5EDD8] text-[#1C1008] border-[#F5EDD8]'
+    : 'bg-[#1C1008] text-white border-[#1C1008]';
+  const calPct      = pct(totalCal, DAILY_CAL_GOAL);
+  const calColor    = calPct < 50 ? '#5C7A5E' : calPct < 85 ? '#D4870D' : '#C9532A';
+  const countryName = COUNTRIES.find(c => c.id === country)?.name ?? 'local';
+  const dayTotal    = (meals: Record<string, Meal>) =>
     Object.values(meals).reduce((s, m) => s + m.nutrition.calories, 0);
-  const planDrifted   = weeklyPlan && planFilters &&
+  const planDrifted = weeklyPlan && planFilters &&
     (planFilters.country !== country || planFilters.vibe !== vibe || planFilters.diet !== diet);
 
   if (isCheckingAuth) return <div className={`${bg} min-h-screen`} />;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className={`${bg} ${txt} min-h-screen font-sans transition-colors duration-300`}>
+    <div className={`${bg} ${txt} min-h-screen font-sans transition-colors duration-300 relative`}>
 
-      {/* ── TOAST ─────────────────────────────────────────────────────────── */}
+      {/* Grain overlay */}
+      <div className="pointer-events-none fixed inset-0 z-[1] opacity-[0.022] mix-blend-overlay"
+        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }} />
+
+      {/* Top ambient */}
+      <div className="pointer-events-none fixed top-0 left-1/2 -translate-x-1/2 w-[500px] h-[220px] z-[1]"
+        style={{ background: 'radial-gradient(ellipse at top, rgba(201,83,42,0.1) 0%, transparent 70%)' }} />
+
+      {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] px-5 py-3 rounded-2xl text-sm font-semibold shadow-2xl backdrop-blur-md bg-[#1C1008] text-white animate-in fade-in slide-in-from-bottom-4 duration-300 max-w-[88vw] text-center">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] px-5 py-3.5 rounded-2xl text-sm font-bold shadow-2xl backdrop-blur-xl border border-white/10 bg-[#1C1008]/95 text-white max-w-[88vw] text-center"
+          style={{ animation: 'toastIn 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}>
           {toast}
         </div>
       )}
 
-      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
-      <header className={`sticky top-0 z-50 ${dk ? 'bg-[#0D0A06]/90 border-white/5' : 'bg-[#FBF6EE]/90 border-[#5a3714]/8'} border-b backdrop-blur-xl transition-colors duration-300`}>
+      {/* Header */}
+      <header className={`sticky top-0 z-50 border-b backdrop-blur-2xl transition-colors duration-300
+        ${dk ? 'bg-[#0A0804]/88 border-white/5' : 'bg-[#FAF5EC]/88 border-[#E0D4BC]/60'}`}>
         <div className="max-w-xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
-
           <button onClick={logout}
-            className={`text-xs font-bold px-3 py-2 rounded-xl ${dk ? 'hover:bg-white/5' : 'hover:bg-[#F5EDD8]'} text-[#C9532A] transition-all flex-shrink-0`}>
+            className={`text-[11px] font-black px-3 py-2 rounded-xl transition-all active:scale-95
+              text-[#C9532A] ${dk ? 'hover:bg-[#C9532A]/10' : 'hover:bg-[#C9532A]/8'}`}>
             🚪 Out
           </button>
 
           <div className="text-center flex-1 min-w-0">
-            <h1 className="font-serif italic font-bold text-lg leading-none">
-              BuBu <span className="text-[#C9532A]">NourishSelect</span> 💎
+            <h1 className="font-serif italic font-bold text-[1.15rem] leading-none tracking-tight">
+              BuBu <span style={{ color: '#C9532A' }}>NourishSelect</span> 💎
             </h1>
             {streak > 0 && (
-              <p className={`text-[9px] font-black uppercase tracking-widest mt-0.5 ${sub}`}>
+              <p className="text-[9px] font-black uppercase tracking-[0.15em] mt-0.5"
+                style={{ color: '#D4870D' }}>
                 🔥 {streak}-day streak
               </p>
             )}
@@ -371,240 +365,323 @@ export default function NourishSelectPage() {
 
           <div className="flex gap-1.5 items-center flex-shrink-0">
             <button onClick={() => setShowHistory(true)}
-              className={`text-xs font-bold px-2.5 py-2 rounded-xl ${dk ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-[#F5EDD8] hover:bg-[#EDE0C8] text-[#5C3D1E]'} transition-all`}>
+              className={`text-sm px-2.5 py-2 rounded-xl transition-all active:scale-95
+                ${dk ? 'bg-white/5 hover:bg-white/10 text-[#D4B896]' : 'bg-[#F5EDD8] hover:bg-[#EDE0C8] text-[#5C3D1E]'}`}>
               📊
             </button>
-
-            {/* Plan Week — always shows text label so users know what it does */}
             <button onClick={() => setShowPlanner(true)}
-              className={`relative text-xs font-black px-2.5 py-2 rounded-xl transition-all flex items-center gap-1
-                ${dk ? 'bg-[#C9532A]/20 hover:bg-[#C9532A]/30 text-[#F5844C]' : 'bg-[#FEE9DF] hover:bg-[#FDD9C8] text-[#C9532A]'}`}>
-              📅 <span className="text-xs font-black">Plan</span>
-              {weeklyPlan && !planDrifted && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#C9532A]" />
-              )}
-              {planDrifted && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              )}
+              className={`relative text-[11px] font-black px-2.5 py-2 rounded-xl transition-all active:scale-95 flex items-center gap-1
+                ${dk ? 'bg-[#C9532A]/15 hover:bg-[#C9532A]/25 text-[#F5844C]' : 'bg-[#FEE9DF] hover:bg-[#FDD9C8] text-[#C9532A]'}`}>
+              📅 Plan
+              {weeklyPlan && !planDrifted && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#C9532A]" />}
+              {planDrifted && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />}
             </button>
-
             <button onClick={() => setShowSettings(true)}
-              className="text-xs font-bold px-2.5 py-2 rounded-xl bg-[#C9532A] hover:bg-[#A93F1F] text-white transition-all">
+              className="text-sm px-2.5 py-2 rounded-xl bg-[#C9532A] hover:bg-[#A93F1F] text-white transition-all active:scale-95 shadow-[0_2px_10px_rgba(201,83,42,0.3)]">
               ⚙️
             </button>
           </div>
         </div>
       </header>
 
-      {/* ── ONBOARDING STRIP ─────────────────────────────────────────────── */}
+      {/* Onboarding */}
       {!onboarded && (
-        <div className={`${dk ? 'bg-[#1A1208] border-white/5' : 'bg-[#FFF7ED] border-[#F5DFC0]'} border-b`}>
+        <div className={`border-b ${dk ? 'bg-[#141008] border-white/5' : 'bg-[#FFF7ED] border-[#F5DFC0]'}`}>
           <div className="max-w-xl mx-auto px-4 py-4">
-            <p className={`text-[9px] font-black uppercase tracking-widest ${sub} mb-3`}>How it works</p>
+            <p className={`text-[8px] font-black uppercase tracking-[0.2em] ${sub} mb-3`}>How it works</p>
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
               {[
                 { num: '①', icon: '💎', text: 'Pick your vibe & filters' },
-                { num: '→', icon: '',   text: '' },
+                { num: '→', icon: '', text: '' },
                 { num: '②', icon: '🤌', text: 'Hit the big button' },
-                { num: '→', icon: '',   text: '' },
+                { num: '→', icon: '', text: '' },
                 { num: '③', icon: '✅', text: 'Log it or email it' },
               ].map((s, i) => s.icon ? (
-                <div key={i} className={`flex-shrink-0 flex items-center gap-2 px-3 py-2.5 rounded-xl ${dk ? 'bg-white/5' : 'bg-white border border-[#F0E4CC]'}`}>
+                <div key={i} className={`flex-shrink-0 flex items-center gap-2 px-3 py-2.5 rounded-xl
+                  ${dk ? 'bg-white/5' : 'bg-white border border-[#F0E4CC]'}`}>
                   <span className="text-[10px] font-black text-[#C9532A]">{s.num}</span>
                   <span className="text-base">{s.icon}</span>
                   <span className="text-[11px] font-semibold whitespace-nowrap">{s.text}</span>
                 </div>
-              ) : (
-                <span key={i} className={`flex-shrink-0 text-sm ${sub}`}>→</span>
-              ))}
+              ) : <span key={i} className={`flex-shrink-0 text-xs ${sub}`}>→</span>)}
             </div>
           </div>
         </div>
       )}
 
-      {/* ── MAIN CONTENT ─────────────────────────────────────────────────── */}
-      <div className="max-w-xl mx-auto px-4 py-6 space-y-8 pb-32">
+      {/* Main */}
+      <div className="max-w-xl mx-auto px-4 pt-6 pb-32 space-y-7 relative z-[2]">
 
-        {/* ── CALORIE BAR ── */}
-        <section className={`${card} border rounded-3xl p-5`}>
-          <div className="flex justify-between items-center mb-3">
-            <div>
-              <p className={`text-[10px] font-black uppercase tracking-widest ${sub}`}>🔥 Today's Calories</p>
-              {totalCal === 0 && <p className={`text-[10px] mt-0.5 ${sub} opacity-70`}>Log a meal below to start tracking</p>}
+        {/* Calorie Bar */}
+        <section className={`${card} ${cardGlow} border rounded-3xl p-5 relative overflow-hidden`}>
+          {totalCal > 0 && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 font-serif font-black leading-none pointer-events-none select-none"
+              style={{ fontSize: '72px', color: calColor, opacity: 0.05 }}>
+              {calPct}%
             </div>
-            <p className="text-xs font-bold">
-              {totalCal > 0
-                ? <><span style={{ color: calColor }}>{totalCal}</span><span className={sub}> / {DAILY_CAL_GOAL} kcal</span></>
-                : <span className={sub}>0 / {DAILY_CAL_GOAL} kcal</span>}
-            </p>
-          </div>
-          <div className={`h-2 rounded-full ${dk ? 'bg-white/8' : 'bg-[#F5EDD8]'} overflow-hidden`}>
+          )}
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <SectionLabel dk={dk}>🔥 Today's Calories</SectionLabel>
+              {totalCal === 0
+                ? <p className={`text-xs mt-1.5 ${sub}`}>Log a meal below to start tracking</p>
+                : <p className="font-serif font-black text-2xl mt-1.5" style={{ color: calColor }}>
+                    {totalCal}
+                    <span className={`text-sm font-normal ml-1 ${sub}`}>/ {DAILY_CAL_GOAL} kcal</span>
+                  </p>
+              }
+            </div>
             {totalCal > 0 && (
-              <div className="h-full rounded-full transition-all duration-700"
-                style={{ width: `${calPct}%`, background: `linear-gradient(90deg, ${calColor}, ${calColor}aa)` }} />
+              <div className="relative w-14 h-14 flex-shrink-0">
+                <svg className="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
+                  <circle cx="28" cy="28" r="22" fill="none"
+                    stroke={dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'} strokeWidth="4" />
+                  <circle cx="28" cy="28" r="22" fill="none" stroke={calColor} strokeWidth="4"
+                    strokeDasharray={`${2 * Math.PI * 22}`}
+                    strokeDashoffset={`${2 * Math.PI * 22 * (1 - calPct / 100)}`}
+                    strokeLinecap="round"
+                    style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black"
+                  style={{ color: calColor }}>{calPct}%</span>
+              </div>
             )}
           </div>
+          <div className={`h-1.5 rounded-full overflow-hidden ${dk ? 'bg-white/6' : 'bg-[#F0E8D8]'}`}>
+            <div className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${calPct}%`, background: `linear-gradient(90deg, ${calColor}77, ${calColor})` }} />
+          </div>
           {loggedMeals.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-3">
+            <div className="flex flex-wrap gap-1.5 mt-3">
               {loggedMeals.map((m, i) => (
-                <span key={i} className={`text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1.5 ${dk ? 'bg-white/5' : 'bg-[#F5EDD8]'} ${sub} font-medium`}>
-                  {m.name.slice(0, 16)}{m.name.length > 16 ? '…' : ''}
-                  <span className="text-[#C9532A] font-bold">{m.cal}k</span>
-                  <button onClick={() => removeLoggedMeal(i)} className="opacity-40 hover:opacity-100 ml-0.5">×</button>
+                <span key={i} className={`text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1.5 font-semibold
+                  ${dk ? 'bg-white/6 text-[#D4B896]' : 'bg-[#F5EDD8] text-[#8B5E3C]'}`}>
+                  {m.name.slice(0, 14)}{m.name.length > 14 ? '…' : ''}
+                  <span className="font-black" style={{ color: calColor }}>{m.cal}k</span>
+                  <button onClick={() => removeLoggedMeal(i)}
+                    className="opacity-35 hover:opacity-100 transition-opacity ml-0.5">×</button>
                 </span>
               ))}
             </div>
           )}
         </section>
 
-        {/* ── COUNTRY ── */}
+        {/* Country */}
         <section>
-          <p className={`text-[9px] font-black uppercase tracking-widest ${sub} mb-1`}>Your Country</p>
-          <p className={`text-[11px] ${sub} opacity-70 mb-3`}>We prioritise meals from this cuisine</p>
+          <SectionLabel dk={dk}>Your Country</SectionLabel>
+          <p className={`text-[11px] ${sub} mt-1 mb-3`}>We prioritise meals from this cuisine</p>
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
             {COUNTRIES.map(c => (
               <button key={c.id} onClick={() => setCountry(c.id as CountryKey)}
-                className={`flex-shrink-0 px-4 py-2.5 rounded-2xl border text-[11px] font-bold transition-all duration-200 ${country === c.id ? activeCountry + ' shadow-lg scale-[1.04]' : pill}`}>
+                className={`flex-shrink-0 px-3.5 py-2.5 rounded-2xl border text-[11px] font-bold transition-all duration-200 active:scale-95
+                  ${country === c.id ? activeCountry + ' scale-[1.04]' : pill}`}>
                 {c.flag} {c.name}
               </button>
             ))}
           </div>
         </section>
 
-        {/* ── VIBE ── */}
+        {/* Vibe */}
         <section>
-          <p className={`text-[9px] font-black uppercase tracking-widest ${sub} mb-1`}>Today's Vibe</p>
-          <p className={`text-[11px] ${sub} opacity-70 mb-3`}>Tell us how you're feeling — we'll match the food</p>
+          <SectionLabel dk={dk}>Today's Vibe</SectionLabel>
+          <p className={`text-[11px] ${sub} mt-1 mb-3`}>Tell us how you're feeling — we'll match the food</p>
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
             {VIBES.map(v => (
               <button key={v.id} onClick={() => setVibe(v.id)}
-                className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full border text-[11px] font-bold transition-all duration-200 ${vibe === v.id ? activePill + ' scale-[1.04]' : pill}`}>
-                {v.icon} {v.label}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-full border text-[11px] font-bold transition-all duration-200 active:scale-95
+                  ${vibe === v.id ? activePill + ' scale-[1.04]' : pill}`}>
+                <span>{v.icon}</span>{v.label}
               </button>
             ))}
           </div>
         </section>
 
-        {/* ── MEAL TIME ── */}
+        {/* Meal Time */}
         <section>
-          <p className={`text-[9px] font-black uppercase tracking-widest ${sub} mb-1`}>Meal Time</p>
-          <p className={`text-[11px] ${sub} opacity-70 mb-3`}>What meal are you planning right now?</p>
+          <SectionLabel dk={dk}>Meal Time</SectionLabel>
+          <p className={`text-[11px] ${sub} mt-1 mb-3`}>What meal are you planning right now?</p>
           <div className="grid grid-cols-4 gap-2">
             {TIMES.map(t => (
               <button key={t.id} onClick={() => setTime(t.id as TimeKey)}
-                className={`flex flex-col items-center p-3.5 rounded-2xl border transition-all duration-200 ${time === t.id ? activeTime + ' shadow-xl scale-[1.04]' : pill}`}>
-                <span className="text-xl mb-1">{t.icon}</span>
+                className={`flex flex-col items-center p-3 rounded-2xl border transition-all duration-200 active:scale-95
+                  ${time === t.id ? activeTime + ' scale-[1.04] shadow-lg' : pill}`}>
+                <span className="text-2xl mb-1">{t.icon}</span>
                 <span className="text-[9px] font-black uppercase tracking-wide">{t.name}</span>
-                <span className={`text-[8px] mt-0.5 ${time === t.id ? 'opacity-60' : sub}`}>{t.cal}</span>
+                <span className={`text-[8px] mt-0.5 ${time === t.id ? 'opacity-55' : sub}`}>{t.cal}</span>
               </button>
             ))}
           </div>
         </section>
 
-        {/* ── DIET ── */}
+        {/* Diet */}
         <section>
-          <p className={`text-[9px] font-black uppercase tracking-widest ${sub} mb-1`}>Diet Preference</p>
-          <p className={`text-[11px] ${sub} opacity-70 mb-3`}>We'll filter out anything that doesn't work for you</p>
+          <SectionLabel dk={dk}>Diet Preference</SectionLabel>
+          <p className={`text-[11px] ${sub} mt-1 mb-3`}>We'll filter out anything that doesn't work for you</p>
           <div className="flex flex-wrap gap-2">
             {DIETS.map(d => (
               <button key={d} onClick={() => setDiet(d)}
-                className={`px-4 py-2 rounded-full border text-[11px] font-bold transition-all duration-200 ${diet === d ? 'bg-[#5C7A5E] border-[#5C7A5E] text-white' : pill}`}>
+                className={`px-4 py-2 rounded-full border text-[11px] font-bold transition-all duration-200 active:scale-95
+                  ${diet === d
+                    ? 'bg-[#5C7A5E] border-[#5C7A5E] text-white shadow-[0_4px_12px_rgba(92,122,94,0.32)] scale-[1.04]'
+                    : pill}`}>
                 {d}
               </button>
             ))}
           </div>
         </section>
 
-        {/* ── SPIN BUTTON ── */}
-        <div className="space-y-2">
-          <button onClick={spinMeal} disabled={loading}
-            className={`w-full py-6 rounded-3xl font-black text-lg shadow-2xl active:scale-[0.98] transition-all duration-200
-              ${dk ? 'bg-white text-[#0D0A06]' : 'bg-[#1C1008] text-white'}
-              ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:-translate-y-0.5 hover:shadow-[0_20px_60px_rgba(28,16,8,0.25)]'}`}>
-            {loading ? (
-              <span className="flex items-center justify-center gap-3">
-                <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                Consulting the brain…
+        {/* Spin Button */}
+        <div className="space-y-3">
+          <div className="relative">
+            {!loading && (
+              <div className="absolute inset-x-8 inset-y-2 rounded-3xl blur-2xl opacity-15 pointer-events-none"
+                style={{ background: dk ? '#F5EDD8' : '#1C1008' }} />
+            )}
+            <button onClick={spinMeal} disabled={loading}
+              className={`relative w-full py-7 rounded-3xl font-black text-xl tracking-tight transition-all duration-300 active:scale-[0.97] overflow-hidden
+                ${dk ? 'bg-[#F5EDD8] text-[#1C1008]' : 'bg-[#1C1008] text-white'}
+                ${loading ? 'opacity-60 cursor-not-allowed' : 'hover:-translate-y-0.5'}`}
+              style={{
+                boxShadow: loading ? 'none'
+                  : dk ? '0 8px 32px rgba(245,237,216,0.14), 0 2px 8px rgba(0,0,0,0.25)'
+                       : '0 8px 32px rgba(28,16,8,0.3), 0 2px 8px rgba(28,16,8,0.15)',
+              }}>
+              {/* Shimmer */}
+              {!loading && (
+                <span className="absolute inset-0 pointer-events-none overflow-hidden rounded-3xl">
+                  <span className="absolute inset-0"
+                    style={{
+                      backgroundImage: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.07) 50%, transparent 60%)',
+                      backgroundSize: '200% 100%',
+                      animation: 'shimmer 3s ease-in-out infinite',
+                    }} />
+                </span>
+              )}
+              <span className="relative z-10 flex items-center justify-center gap-3">
+                {loading ? (
+                  <>
+                    <span className="w-5 h-5 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                    Consulting the brain…
+                  </>
+                ) : (
+                  <><span className="text-2xl">💎</span> What should I eat? <span className="text-2xl">💁🏿‍♀️</span></>
+                )}
               </span>
-            ) : '💎💁🏿‍♀️  What should I eat?'}
-          </button>
-          <p className={`text-center text-[11px] ${sub}`}>
-            Tap above — we'll pick the perfect {countryName} meal for your mood
+            </button>
+          </div>
+          <p className={`text-center text-[11px] font-medium ${sub}`}>
+            {spinCount === 0
+              ? `Tap above — we'll find the perfect ${countryName} meal for your mood`
+              : spinCount === 1 ? 'Not feeling it? Tap again for a different pick ✨'
+              : 'Keep going until it feels right 🎯'}
           </p>
         </div>
 
-        {/* ── MEAL CARD ── */}
+        {/* Meal Card */}
         {meal && !loading && (
-          <div className={`${card} border rounded-[2rem] shadow-2xl overflow-hidden transition-all duration-500 ${mealIn ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-            <div className="relative h-60 overflow-hidden">
+          <div className={`${card} border rounded-[2rem] overflow-hidden transition-all duration-500 ${cardGlow}
+            ${mealIn ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-6 scale-[0.97]'}`}>
+
+            <div className="relative h-64 overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={mealImage} alt={meal.name} className="w-full h-full object-cover transition-transform duration-700 hover:scale-105" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-              <div className="absolute top-4 left-4">
-                <span className="text-[9px] font-black uppercase tracking-widest text-white/60 bg-black/30 backdrop-blur-sm px-2.5 py-1 rounded-full">
+              <img src={mealImage} alt={meal.name}
+                className="w-full h-full object-cover transition-transform duration-700 hover:scale-105" />
+              <div className="absolute inset-0"
+                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.25) 55%, transparent 100%)' }} />
+
+              {/* Top badges */}
+              <div className="absolute top-4 left-4 flex gap-2">
+                <span className="text-[9px] font-black uppercase tracking-wider text-white/70 bg-black/35 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
                   {VIBES.find(v => v.id === vibe)?.icon} {meal.cuisine.toUpperCase()}
                 </span>
+                <span className="text-[9px] font-black text-white/60 bg-black/25 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
+                  ⭐ {meal.rating.toFixed(1)}
+                </span>
               </div>
+              <div className="absolute top-4 right-4">
+                <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-full backdrop-blur-md border border-white/10
+                  ${meal.difficulty === 'easy' ? 'bg-green-900/40 text-green-300'
+                    : meal.difficulty === 'medium' ? 'bg-amber-900/40 text-amber-300'
+                    : 'bg-red-900/40 text-red-300'}`}>
+                  {meal.difficulty}
+                </span>
+              </div>
+
               <div className="absolute bottom-0 left-0 right-0 p-6">
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/50 mb-1.5">Guided Selection</p>
-                <h2 className="font-serif font-bold text-3xl text-white leading-tight">{meal.name}</h2>
+                <p className="text-[8px] font-black uppercase tracking-[0.25em] text-white/35 mb-2">— Guided Selection —</p>
+                <h2 className="font-serif font-bold text-[1.75rem] text-white leading-tight">{meal.name}</h2>
               </div>
             </div>
 
             <div className="p-6">
-              <p className={`text-[13.5px] leading-[1.7] italic mb-6 ${dk ? 'text-white/55' : 'text-[#5C3D1E]/70'}`}>
+              <p className={`text-[13px] leading-[1.8] italic mb-6 ${dk ? 'text-[#8B6D52]' : 'text-[#6B4C30]/70'}`}>
                 "{meal.description}"
               </p>
 
-              <div className={`grid grid-cols-4 rounded-2xl overflow-hidden border ${dk ? 'border-white/6' : 'border-[#F0E8D8]'} mb-6`}>
+              {/* Macros */}
+              <div className={`grid grid-cols-4 rounded-2xl overflow-hidden border mb-5
+                ${dk ? 'border-white/6' : 'border-[#EDE4D4]'}`}>
                 {[
-                  { val: meal.nutrition.calories, unit: 'kcal', label: 'Cal', accent: true },
-                  { val: meal.nutrition.protein,  unit: 'g',    label: 'Protein' },
-                  { val: meal.nutrition.carbs,     unit: 'g',    label: 'Carbs' },
-                  { val: meal.nutrition.fat,       unit: 'g',    label: 'Fat' },
+                  { val: meal.nutrition.calories, unit: 'kcal', label: 'Cal',     color: '#C9532A' },
+                  { val: meal.nutrition.protein,  unit: 'g',    label: 'Protein', color: '#5C7A5E' },
+                  { val: meal.nutrition.carbs,     unit: 'g',    label: 'Carbs',   color: '#D4870D' },
+                  { val: meal.nutrition.fat,       unit: 'g',    label: 'Fat',     color: '#7B6BA8' },
                 ].map((m, i) => (
-                  <div key={i} className={`py-4 text-center ${i < 3 ? `border-r ${dk ? 'border-white/6' : 'border-[#F0E8D8]'}` : ''} ${dk ? 'bg-white/2' : 'bg-[#FDFAF5]'}`}>
-                    <p className={`font-serif font-bold text-xl ${m.accent ? 'text-[#C9532A]' : ''}`}>
-                      {m.val}<span className={`text-[9px] font-normal ${sub}`}>{m.unit}</span>
+                  <div key={i} className={`py-4 text-center relative
+                    ${i < 3 ? `border-r ${dk ? 'border-white/6' : 'border-[#EDE4D4]'}` : ''}
+                    ${dk ? 'bg-white/2' : 'bg-[#FDFAF5]'}`}>
+                    <div className="absolute top-0 left-1/4 right-1/4 h-[2px] rounded-full opacity-50"
+                      style={{ background: m.color }} />
+                    <p className="font-serif font-bold text-[1.15rem]" style={{ color: m.color }}>
+                      {m.val}<span className={`text-[8px] font-normal ml-0.5 ${sub}`}>{m.unit}</span>
                     </p>
-                    <p className={`text-[8px] font-black uppercase tracking-widest mt-1 ${sub}`}>{m.label}</p>
+                    <p className={`text-[7.5px] font-black uppercase tracking-widest mt-1 ${sub}`}>{m.label}</p>
                   </div>
                 ))}
               </div>
 
+              {/* Meta */}
               <div className="flex gap-2 mb-6 flex-wrap">
                 {[
                   { icon: '⏱', val: `${meal.prepTime + meal.cookTime} min` },
-                  { icon: '📊', val: meal.difficulty },
-                  { icon: '⭐', val: meal.rating.toFixed(1) },
+                  { icon: '🍽️', val: meal.cuisine },
                 ].map((b, i) => (
-                  <span key={i} className={`text-[10.5px] font-semibold px-3 py-1.5 rounded-full ${dk ? 'bg-white/5' : 'bg-[#F5EDD8]'} ${sub} flex items-center gap-1.5`}>
+                  <span key={i} className={`text-[10px] font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5
+                    ${dk ? 'bg-white/5 text-[#D4B896]' : 'bg-[#F5EDD8] text-[#8B5E3C]'}`}>
                     {b.icon} {b.val}
                   </span>
                 ))}
               </div>
 
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
+              {/* Actions */}
+              <div className="space-y-2.5">
+                <div className="grid grid-cols-2 gap-2.5">
                   <button onClick={logMeal}
-                    className={`py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 ${dk ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-[#F5EDD8] hover:bg-[#EDE0C8] text-[#5C3D1E]'}`}>
-                    ➕ Add to Calories
+                    className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95
+                      ${dk ? 'bg-white/6 hover:bg-white/12 text-[#F5EDD8] border border-white/8'
+                           : 'bg-[#F5EDD8] hover:bg-[#EDE0C8] text-[#3D2010] border border-[#E0D4BC]'}`}>
+                    ➕ Log Calories
                   </button>
                   <a href={`https://www.google.com/maps/search/${encodeURIComponent(meal.name + ' restaurant near me')}`}
                     target="_blank" rel="noopener noreferrer"
-                    className={`py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center ${dk ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-[#F5EDD8] hover:bg-[#EDE0C8] text-[#5C3D1E]'}`}>
+                    className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center
+                      ${dk ? 'bg-white/6 hover:bg-white/12 text-[#F5EDD8] border border-white/8'
+                           : 'bg-[#F5EDD8] hover:bg-[#EDE0C8] text-[#3D2010] border border-[#E0D4BC]'}`}>
                     🗺️ Find Near Me
                   </a>
                 </div>
-                <div>
-                  <p className={`text-[9px] font-bold uppercase tracking-widest ${sub} mb-1.5 text-center`}>Want to save this for later?</p>
+                <div className={`rounded-2xl overflow-hidden border ${dk ? 'border-white/6' : 'border-[#E0D4BC]'}`}>
+                  <p className={`text-[9px] font-bold uppercase tracking-widest ${sub} px-4 pt-3 pb-1 text-center`}>
+                    Save this meal for later
+                  </p>
                   {emailSent ? (
-                    <div className={`py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center ${dk ? 'bg-[#5C7A5E]/20 text-[#5C7A5E]' : 'bg-[#E0EDDF] text-[#5C7A5E]'}`}>
-                      💌 Sent to inbox!
+                    <div className={`py-4 text-[10px] font-black uppercase tracking-widest text-center
+                      ${dk ? 'bg-[#5C7A5E]/15 text-[#86B888]' : 'bg-[#E0EDDF] text-[#5C7A5E]'}`}>
+                      💌 Landed in your inbox!
                     </div>
                   ) : (
                     <button onClick={sendEmail} disabled={emailLoading}
-                      className="w-full py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 bg-[#C9532A] hover:bg-[#A93F1F] text-white disabled:opacity-60">
+                      className="w-full py-4 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 bg-[#C9532A] hover:bg-[#A93F1F] text-white disabled:opacity-50">
                       {emailLoading ? (
                         <span className="flex items-center justify-center gap-2">
                           <span className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" />Sending…
@@ -618,54 +695,76 @@ export default function NourishSelectPage() {
           </div>
         )}
 
+        {/* Empty state */}
         {!meal && !loading && (
-          <div className={`${card} border rounded-[2rem] p-12 text-center`}>
-            <p className="text-5xl mb-4">🍽️</p>
-            <p className="font-serif text-lg font-bold mb-2">Ready when you are</p>
-            <p className={`text-sm ${sub}`}>Pick a vibe, time, and preference — then let the brain work.</p>
+          <div className={`${card} ${cardGlow} border rounded-[2rem] p-14 text-center`}>
+            <div className="text-6xl mb-5" style={{ animation: 'float 3s ease-in-out infinite' }}>🍽️</div>
+            <p className="font-serif text-xl font-bold mb-2">Ready when you are</p>
+            <p className={`text-sm leading-relaxed ${sub}`}>
+              Pick a vibe, set your mood,<br />then let the brain do the work.
+            </p>
           </div>
         )}
 
-        {/* ── HYDRATION ── */}
-        <section className="bg-gradient-to-br from-[#0E2233] to-[#0A3040] p-7 rounded-[2rem] text-white shadow-2xl border border-[#38bdf8]/10">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <p className="text-xs font-black uppercase tracking-widest text-white/40 mb-1">💧 Hydration</p>
-              <p className="text-[11px] text-white/30">{waterMsg[Math.min(water, 8)]}</p>
+        {/* Hydration */}
+        <section className="relative overflow-hidden rounded-[2rem] p-7 text-white"
+          style={{ background: 'linear-gradient(135deg, #0C1E30 0%, #0A2840 50%, #0E3350 100%)' }}>
+          <div className="absolute top-0 right-0 w-44 h-44 rounded-full pointer-events-none"
+            style={{ background: 'radial-gradient(circle, rgba(56,189,248,0.12) 0%, transparent 70%)' }} />
+          <div className="relative">
+            <div className="flex justify-between items-start mb-5">
+              <div>
+                <SectionLabel dk={true}>💧 Hydration</SectionLabel>
+                <p className="text-[12px] text-blue-200/45 mt-1">{waterMsg[Math.min(water, 8)]}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-serif text-4xl font-black text-[#7DD3FC]">
+                  {water}<span className="text-sm font-normal text-blue-300/35"> / 8</span>
+                </p>
+                {water > 0 && (
+                  <button onClick={() => { setWater(0); localStorage.setItem('bubu_water', '0'); }}
+                    className="text-[9px] text-blue-300/25 hover:text-blue-300/55 transition-colors mt-1">
+                    reset
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="text-right">
-              <p className="font-serif text-3xl font-bold text-[#7DD3FC]">
-                {water} <span className="text-xs font-normal opacity-40">/ 8</span>
+            {!waterHintShown && (
+              <p className="text-[9px] text-[#38bdf8]/55 font-black uppercase tracking-widest mb-4 animate-pulse">
+                👆 Tap a glass to log water
               </p>
-              {water > 0 && (
-                <button onClick={() => { setWater(0); localStorage.setItem('bubu_water', '0'); }}
-                  className="text-[9px] text-white/25 hover:text-white/50 transition-colors mt-1">reset</button>
-              )}
+            )}
+            <div className="flex justify-between mb-5">
+              {Array.from({ length: 8 }, (_, i) => (
+                <button key={i} onClick={() => logGlass(i)}
+                  className="group transition-all duration-200 active:scale-90"
+                  style={{ transform: i < water ? 'scale(1.12)' : 'scale(1)' }}>
+                  <span className={`text-2xl block transition-all duration-200 group-hover:scale-125
+                    ${i < water ? 'opacity-100' : 'opacity-18 grayscale'}`}>
+                    🥛
+                  </span>
+                  {i < water && (
+                    <div className="mx-auto mt-0.5 w-1 h-1 rounded-full bg-[#38bdf8]" />
+                  )}
+                </button>
+              ))}
             </div>
-          </div>
-          {!waterHintShown && (
-            <p className="text-[9px] text-[#38bdf8]/60 font-bold uppercase tracking-widest mb-3 animate-pulse">
-              👆 Tap a glass to log water
-            </p>
-          )}
-          <div className="flex justify-between mb-5">
-            {Array.from({ length: 8 }, (_, i) => (
-              <button key={i} onClick={() => logGlass(i)}
-                className={`text-2xl transition-all duration-200 hover:scale-125 ${i < water ? 'opacity-100 scale-110' : 'opacity-20 grayscale'} ${!waterHintShown && i === 0 ? 'animate-bounce' : ''}`}>
-                🥛
-              </button>
-            ))}
-          </div>
-          <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-[#38bdf8] to-[#7DD3FC] rounded-full transition-all duration-700"
-              style={{ width: `${pct(water, 8)}%` }} />
+            <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${pct(water, 8)}%`,
+                  background: 'linear-gradient(90deg, #38bdf8, #7DD3FC)',
+                  boxShadow: water > 0 ? '0 0 8px rgba(56,189,248,0.45)' : 'none',
+                }} />
+            </div>
           </div>
         </section>
 
-        {/* ── EMAIL CAPTURE ── */}
-        <section className={`${card} border rounded-3xl p-6`}>
+        {/* Email capture */}
+        <section className={`${card} ${cardGlow} border rounded-3xl p-6`}>
           <div className="flex items-center gap-3 mb-4">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base ${dk ? 'bg-white/5' : 'bg-[#F5EDD8]'}`}>🔔</div>
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg flex-shrink-0
+              ${dk ? 'bg-[#C9532A]/15' : 'bg-[#FEE9DF]'}`}>🔔</div>
             <div>
               <p className="text-sm font-bold">Meal & Hydration Reminders</p>
               <p className={`text-[10px] ${sub}`}>Get your daily recommendation by email</p>
@@ -677,18 +776,14 @@ export default function NourishSelectPage() {
               placeholder="your@email.com"
               className={`flex-1 px-4 py-3 rounded-2xl border text-[13px] outline-none focus:border-[#C9532A] transition-all ${input}`} />
             <button onClick={sendEmail} disabled={emailLoading || !meal}
-              className="px-4 py-3 bg-[#C9532A] hover:bg-[#A93F1F] text-white text-[11px] font-black uppercase rounded-2xl transition-all active:scale-95 disabled:opacity-40 whitespace-nowrap">
+              className="px-4 py-3 bg-[#C9532A] hover:bg-[#A93F1F] text-white text-[11px] font-black uppercase rounded-2xl transition-all active:scale-95 disabled:opacity-40 whitespace-nowrap shadow-[0_4px_12px_rgba(201,83,42,0.28)]">
               {emailLoading ? '…' : 'Send 📩'}
             </button>
           </div>
         </section>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────────── */}
-      {/* SHEETS (bottom sheet on mobile, centred dialog on desktop)          */}
-      {/* The close button lives INSIDE the sticky header — never off-screen  */}
-      {/* ─────────────────────────────────────────────────────────────────── */}
-
+      {/* Sheets */}
       {showSettings && (
         <Sheet onClose={() => setShowSettings(false)} dk={dk} title="Settings ⚙️">
           <div className="space-y-5">
@@ -713,16 +808,16 @@ export default function NourishSelectPage() {
               onToggle={() => setAutoRefresh(!autoRefresh)} sub={sub} />
             <ToggleRow label="Daily Email Recommendations" active={isSubscribed}
               onToggle={() => { const n = !isSubscribed; setIsSubscribed(n); localStorage.setItem('bubu_subscribed', String(n)); }} sub={sub} />
-            <ToggleRow label="Dark Mode" active={darkMode}
-              onToggle={() => setDarkMode(!darkMode)} sub={sub} />
+            <ToggleRow label="Dark Mode" active={darkMode} onToggle={() => setDarkMode(!darkMode)} sub={sub} />
           </div>
           <div className="flex gap-3 mt-8">
             <button onClick={() => setShowSettings(false)}
-              className={`flex-1 py-3.5 rounded-2xl font-bold text-sm border ${dk ? 'border-white/10 text-white hover:bg-white/5' : 'border-[#E8E2D2] hover:bg-[#F5EDD8]'} transition-all`}>
+              className={`flex-1 py-3.5 rounded-2xl font-bold text-sm border transition-all active:scale-95
+                ${dk ? 'border-white/10 text-[#D4B896] hover:bg-white/5' : 'border-[#E8E2D2] hover:bg-[#F5EDD8]'}`}>
               Cancel
             </button>
             <button onClick={saveSettings}
-              className="flex-1 py-3.5 rounded-2xl font-bold text-sm bg-[#C9532A] hover:bg-[#A93F1F] text-white transition-all">
+              className="flex-1 py-3.5 rounded-2xl font-bold text-sm bg-[#C9532A] hover:bg-[#A93F1F] text-white transition-all active:scale-95 shadow-[0_4px_14px_rgba(201,83,42,0.28)]">
               Save ✓
             </button>
           </div>
@@ -731,35 +826,35 @@ export default function NourishSelectPage() {
 
       {showHistory && (
         <Sheet onClose={() => setShowHistory(false)} dk={dk} title="Today's Log 📊"
-          titleRight={
-            <span className={`text-xs font-bold ${sub}`}>
-              <span style={{ color: calColor }}>{totalCal}</span> / {DAILY_CAL_GOAL} kcal
-            </span>
-          }>
-          <div className={`${dk ? 'bg-white/5' : 'bg-[#FDF9F0]'} rounded-2xl p-4 mb-5`}>
-            <div className={`h-3 rounded-full ${dk ? 'bg-white/8' : 'bg-[#F0E8D8]'} overflow-hidden`}>
+          titleRight={<span className={`text-xs font-bold ${sub}`}><span style={{ color: calColor }}>{totalCal}</span> / {DAILY_CAL_GOAL} kcal</span>}>
+          <div className={`rounded-2xl p-4 mb-5 ${dk ? 'bg-white/4' : 'bg-[#FDF9F0]'}`}>
+            <div className={`h-2.5 rounded-full overflow-hidden ${dk ? 'bg-white/8' : 'bg-[#F0E8D8]'}`}>
               <div className="h-full rounded-full transition-all duration-700"
-                style={{ width: `${calPct}%`, background: `linear-gradient(90deg, ${calColor}, ${calColor}aa)` }} />
+                style={{ width: `${calPct}%`, background: `linear-gradient(90deg, ${calColor}88, ${calColor})` }} />
             </div>
-            <p className={`text-[10px] font-bold uppercase tracking-widest mt-2 ${sub}`}>
+            <p className={`text-[10px] font-bold uppercase tracking-widest mt-2.5 ${sub}`}>
               {calPct < 60 ? 'Under target — keep eating!' : calPct < 100 ? 'On track 👏' : '🎉 Daily goal reached!'}
             </p>
           </div>
           {loggedMeals.length === 0 ? (
-            <p className={`text-center py-8 text-sm ${sub}`}>
-              No meals logged yet today.<br />Spin a meal and tap ➕ Add to Calories!
-            </p>
+            <div className="text-center py-10">
+              <p className="text-4xl mb-3">🥢</p>
+              <p className={`text-sm ${sub}`}>No meals logged yet today.</p>
+              <p className={`text-xs ${sub} mt-1 opacity-60`}>Spin a meal and tap ➕ Log Calories!</p>
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {loggedMeals.map((m, i) => (
-                <div key={i} className={`flex items-center justify-between p-4 rounded-2xl border ${dk ? 'border-white/6 bg-white/3' : 'border-[#F0E8D8] bg-[#FDFAF5]'}`}>
+                <div key={i} className={`flex items-center justify-between p-4 rounded-2xl border
+                  ${dk ? 'border-white/6 bg-white/3' : 'border-[#F0E8D8] bg-[#FDFAF5]'}`}>
                   <div>
                     <p className="text-sm font-bold">{m.name}</p>
                     <p className={`text-[10px] capitalize ${sub} mt-0.5`}>{m.time}</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-[#C9532A]">{m.cal} kcal</span>
-                    <button onClick={() => removeLoggedMeal(i)} className={`text-lg ${sub} hover:text-[#C9532A] transition-colors`}>×</button>
+                    <span className="text-sm font-black" style={{ color: calColor }}>{m.cal} kcal</span>
+                    <button onClick={() => removeLoggedMeal(i)}
+                      className={`text-lg leading-none ${sub} hover:text-[#C9532A] transition-colors`}>×</button>
                   </div>
                 </div>
               ))}
@@ -770,23 +865,23 @@ export default function NourishSelectPage() {
 
       {showPlanner && (
         <Sheet onClose={() => setShowPlanner(false)} dk={dk} title="📅 Plan Your Week" wide>
-
-          {/* Active filter badges */}
           <div className="flex flex-wrap gap-1.5 mb-3">
-            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${dk ? 'bg-white/8 border-white/10 text-white/80' : 'bg-[#F5EDD8] border-[#E8D8C0] text-[#5C3D1E]'}`}>
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border
+              ${dk ? 'bg-white/8 border-white/10 text-white/80' : 'bg-[#F5EDD8] border-[#E8D8C0] text-[#5C3D1E]'}`}>
               {COUNTRIES.find(c => c.id === country)?.flag} {COUNTRIES.find(c => c.id === country)?.name}
             </span>
-            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${dk ? 'bg-[#C9532A]/15 border-[#C9532A]/20 text-[#F5844C]' : 'bg-[#FEE9DF] border-[#F5C9B8] text-[#C9532A]'}`}>
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border
+              ${dk ? 'bg-[#C9532A]/15 border-[#C9532A]/20 text-[#F5844C]' : 'bg-[#FEE9DF] border-[#F5C9B8] text-[#C9532A]'}`}>
               {VIBES.find(v => v.id === vibe)?.icon} {VIBES.find(v => v.id === vibe)?.label}
             </span>
             {diet !== 'All' && (
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${dk ? 'bg-[#5C7A5E]/15 border-[#5C7A5E]/20 text-[#86B888]' : 'bg-[#E0EDDF] border-[#C4DAC3] text-[#4A6B4C]'}`}>
+              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border
+                ${dk ? 'bg-[#5C7A5E]/15 border-[#5C7A5E]/20 text-[#86B888]' : 'bg-[#E0EDDF] border-[#C4DAC3] text-[#4A6B4C]'}`}>
                 🥗 {diet}
               </span>
             )}
           </div>
 
-          {/* Drift nudge */}
           {planDrifted && (
             <button onClick={generateWeeklyPlan}
               className="mb-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black border border-dashed border-amber-400/60 text-amber-500 bg-amber-400/8 hover:bg-amber-400/15 transition-all active:scale-95 animate-pulse hover:animate-none">
@@ -794,12 +889,11 @@ export default function NourishSelectPage() {
             </button>
           )}
 
-          {/* Action buttons */}
           <div className="flex flex-wrap gap-2 mb-6">
             {weeklyPlan ? (
               <>
                 <button onClick={generateWeeklyPlan}
-                  className="px-4 py-2.5 bg-[#C9532A] hover:bg-[#A93F1F] text-white text-xs font-black uppercase rounded-xl transition-all active:scale-95">
+                  className="px-4 py-2.5 bg-[#C9532A] hover:bg-[#A93F1F] text-white text-xs font-black uppercase rounded-xl transition-all active:scale-95 shadow-[0_4px_12px_rgba(201,83,42,0.28)]">
                   🔄 Regenerate
                 </button>
                 <div>
@@ -812,7 +906,7 @@ export default function NourishSelectPage() {
               </>
             ) : (
               <button onClick={generateWeeklyPlan}
-                className="px-5 py-2.5 bg-[#C9532A] hover:bg-[#A93F1F] text-white text-sm font-black uppercase rounded-xl transition-all active:scale-95">
+                className="px-5 py-2.5 bg-[#C9532A] hover:bg-[#A93F1F] text-white text-sm font-black uppercase rounded-xl transition-all active:scale-95 shadow-[0_6px_20px_rgba(201,83,42,0.32)]">
                 🎯 Generate Plan
               </button>
             )}
@@ -820,10 +914,10 @@ export default function NourishSelectPage() {
 
           {!weeklyPlan ? (
             <div>
-              <p className={`text-sm ${sub} text-center mb-6`}>
-                Generate a personalised 7-day meal plan based on your current vibe, country, and diet. Here's what you'll get:
+              <p className={`text-sm ${sub} text-center mb-6 leading-relaxed`}>
+                Generate a personalised 7-day meal plan based on your current vibe, country, and diet.
               </p>
-              <div className="grid grid-cols-2 gap-3 opacity-40 pointer-events-none select-none mb-6">
+              <div className="grid grid-cols-2 gap-3 opacity-25 pointer-events-none select-none mb-6">
                 {['Monday','Tuesday','Wednesday','Thursday'].map(day => (
                   <div key={day} className="bg-white rounded-[1.2rem] p-4 border border-[#E2E8F0]">
                     <h3 className="text-sm font-black text-[#111827] mb-3">{day}</h3>
@@ -834,14 +928,13 @@ export default function NourishSelectPage() {
                           <p className="text-[10px] font-bold text-[#1F2937]">— — — —</p>
                         </div>
                       ))}
-                      <div className="pt-1 border-t border-[#E2E8F0] text-[9px] font-black text-[#94A3B8]">Total: — kcal</div>
                     </div>
                   </div>
                 ))}
               </div>
               <div className="text-center">
                 <button onClick={generateWeeklyPlan}
-                  className="px-8 py-4 bg-[#C9532A] hover:bg-[#A93F1F] text-white text-sm font-black uppercase rounded-2xl transition-all shadow-lg active:scale-95">
+                  className="px-8 py-4 bg-[#C9532A] hover:bg-[#A93F1F] text-white text-sm font-black uppercase rounded-2xl transition-all active:scale-95 shadow-[0_8px_24px_rgba(201,83,42,0.32)]">
                   🎯 Generate My Plan
                 </button>
               </div>
@@ -888,20 +981,44 @@ export default function NourishSelectPage() {
         </Sheet>
       )}
 
+      <style>{`
+        @keyframes shimmer {
+          0%   { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50%       { transform: translateY(-9px); }
+        }
+        @keyframes toastIn {
+          from { opacity: 0; transform: translate(-50%, 14px) scale(0.94); }
+          to   { opacity: 1; transform: translate(-50%, 0)    scale(1);    }
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SHEET COMPONENT
-// Mobile: slides up from bottom (92vh max), rounded top corners, drag pill
-// Desktop: centred dialog with rounded corners
-// Close button: ALWAYS in the sticky header strip — never off-screen
+// SECTION LABEL — accent bar + small caps
 // ─────────────────────────────────────────────────────────────────────────────
+function SectionLabel({ children, dk }: { children: React.ReactNode; dk: boolean }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-[3px] h-3.5 rounded-full bg-[#C9532A] flex-shrink-0" />
+      <p className={`text-[9px] font-black uppercase tracking-[0.18em] ${dk ? 'text-[#8B6D52]' : 'text-[#A67C52]'}`}>
+        {children}
+      </p>
+    </div>
+  );
+}
 
-function Sheet({
-  children, onClose, dk, title, titleRight, wide,
-}: {
+// ─────────────────────────────────────────────────────────────────────────────
+// SHEET — bottom sheet on mobile, centred modal on desktop
+// ─────────────────────────────────────────────────────────────────────────────
+function Sheet({ children, onClose, dk, title, titleRight, wide }: {
   children: React.ReactNode;
   onClose: () => void;
   dk: boolean;
@@ -910,84 +1027,51 @@ function Sheet({
   wide?: boolean;
 }) {
   const backdropRef = useRef<HTMLDivElement>(null);
-
-  // Close on backdrop tap (outside the sheet)
-  const handleBackdrop = (e: React.MouseEvent) => {
-    if (e.target === backdropRef.current) onClose();
-  };
-
-  // Lock body scroll while open
+  const handleBackdrop = (e: React.MouseEvent) => { if (e.target === backdropRef.current) onClose(); };
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
   }, []);
 
-  const sheetBg  = dk ? 'bg-[#1A1208]' : 'bg-white';
-  const borderCl = dk ? 'border-white/5' : 'border-[#E8E2D2]';
+  const sheetBg  = dk ? 'bg-[#141008]' : 'bg-white';
+  const borderCl = dk ? 'border-white/6' : 'border-[#E8E0CC]';
   const hdBorder = dk ? 'border-white/5' : 'border-[#F0E8D8]';
-  const closeBg  = dk ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-[#F5EDD8] hover:bg-[#EDE0C8] text-[#5C3D1E]';
-  const pillBg   = dk ? 'bg-white/20' : 'bg-[#D0C4B0]';
+  const closeBg  = dk ? 'bg-white/8 hover:bg-white/16 text-[#D4B896]' : 'bg-[#F5EDD8] hover:bg-[#EDE0C8] text-[#5C3D1E]';
+  const pillBg   = dk ? 'bg-white/15' : 'bg-[#D0C4B0]';
 
   return (
-    <div
-      ref={backdropRef}
-      onClick={handleBackdrop}
+    <div ref={backdropRef} onClick={handleBackdrop}
       className="fixed inset-0 z-[200] flex flex-col justify-end sm:items-center sm:justify-center"
-      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
-    >
+      style={{ background: 'rgba(0,0,0,0.68)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}>
       <div
         className={[
           'w-full flex flex-col',
-          // Mobile: slides up, rounded top only
-          'rounded-t-[2rem]',
-          'max-h-[92vh]',
-          // Desktop: centred card, all corners rounded
-          'sm:rounded-[2rem]',
-          'sm:max-h-[88vh]',
+          'rounded-t-[2rem] sm:rounded-[2rem]',
+          'max-h-[92vh] sm:max-h-[88vh]',
           wide ? 'sm:max-w-5xl' : 'sm:max-w-md',
-          // Colours & border
-          sheetBg, 'border', borderCl,
-          'shadow-2xl',
-          // Entry animation
+          sheetBg, 'border', borderCl, 'shadow-2xl',
           'animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-300',
         ].join(' ')}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* ── STICKY HEADER with close button always inside ── */}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
         <div className={`flex-shrink-0 px-5 pt-4 pb-4 border-b ${hdBorder} ${sheetBg} rounded-t-[2rem] sticky top-0 z-10`}>
-          {/* Drag pill — mobile hint */}
           <div className="flex justify-center mb-3 sm:hidden">
             <div className={`w-10 h-1 rounded-full ${pillBg}`} />
           </div>
-
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0 pr-2">
-              {title && (
-                <h2 className="font-serif font-bold text-xl leading-snug">{title}</h2>
-              )}
-              {titleRight && (
-                <div className="mt-0.5">{titleRight}</div>
-              )}
+              {title && <h2 className="font-serif font-bold text-xl leading-snug">{title}</h2>}
+              {titleRight && <div className="mt-0.5">{titleRight}</div>}
             </div>
-
-            {/* Close button — always inside panel, always visible */}
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              className={[
-                'flex-shrink-0 w-9 h-9 rounded-full',
-                'flex items-center justify-center',
-                'text-sm font-black',
-                'transition-all active:scale-90',
-                closeBg,
-              ].join(' ')}
-            >
+            <button onClick={onClose} aria-label="Close"
+              className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-black transition-all active:scale-90 ${closeBg}`}>
               ✕
             </button>
           </div>
         </div>
 
-        {/* ── SCROLLABLE CONTENT ── */}
+        {/* Content */}
         <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-5 pb-10">
           {children}
         </div>
@@ -997,9 +1081,8 @@ function Sheet({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FIELD & TOGGLE ROWS
+// FIELD & TOGGLE
 // ─────────────────────────────────────────────────────────────────────────────
-
 function Field({ label, children, dk, sub }: {
   label: string; children: React.ReactNode; dk: boolean; sub: string;
 }) {
@@ -1017,10 +1100,11 @@ function ToggleRow({ label, active, onToggle, sub }: {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-sm font-semibold flex-1 leading-snug">{label}</span>
-      <button
-        onClick={onToggle}
-        className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-black uppercase transition-all ${active ? 'bg-[#C9532A] text-white' : `${sub} bg-black/5 opacity-60`}`}>
-        {active ? 'ON' : 'OFF'}
+      <button onClick={onToggle}
+        className={`flex-shrink-0 w-12 h-6 rounded-full transition-all duration-300 relative
+          ${active ? 'bg-[#C9532A] shadow-[0_0_10px_rgba(201,83,42,0.35)]' : 'bg-black/10'}`}>
+        <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all duration-300
+          ${active ? 'left-[26px]' : 'left-0.5'}`} />
       </button>
     </div>
   );
