@@ -37,9 +37,10 @@ export default function LoginPage() {
     });
     setTimeout(() => setImgBounce(false), 700);
   };
+  // may-5th
 
   const verifyAccess = () => {
-    if (password.trim() === 'may-5th') {
+    if (password.trim() === 'LimitlessBubu123!') {
       setError(false);
       setImgState('correct');
       triggerBounce();
