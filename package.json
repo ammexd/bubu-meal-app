@@ -12,6 +12,7 @@
     "@emailjs/browser": "^4.4.1",
     "@netlify/functions": "^5.2.0",
     "@netlify/plugin-nextjs": "^5.15.10",
+    "@supabase/supabase-js": "^2.105.4",
     "dom-to-image-more": "^3.7.2",
     "googlethis": "^1.8.0",
     "html-to-image": "^1.11.13",
