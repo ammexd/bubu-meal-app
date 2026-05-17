@@ -81,10 +81,10 @@ function parseQty(qty: string): { count: number; unit: string } | null {
   return { count: parseFloat(m[1]), unit: m[2].trim().toLowerCase() };
 }
 
-function mergeItems<T extends { name: string; quantity: string }>(
-  items: T[]
-): Array<Omit<T, "_count" | "_unit">> {
-  const map = new Map<string, T & { _count: number; _unit: string }>();
+function mergeItems(
+  items: Omit<DraftItem, 'key' | 'selected'>[]
+): Omit<DraftItem, 'key' | 'selected'>[] {
+  const map = new Map<string, Omit<DraftItem, 'key' | 'selected'> & { _count: number; _unit: string }>();
   for (const item of items) {
     const key = item.name.toLowerCase().replace(/\s*\(.*?\)/g,'').replace(/[^a-z0-9\s]/g,'').trim();
     if (!map.has(key)) {
@@ -95,11 +95,11 @@ function mergeItems<T extends { name: string; quantity: string }>(
       const p  = parseQty(item.quantity ?? '1');
       if (p && p.unit === ex._unit) {
         ex._count += p.count;
-        (ex as any).quantity = `${ex._count} ${ex._unit}`.trim();
+        ex.quantity = `${ex._count} ${ex._unit}`.trim();
       }
     }
   }
- return Array.from(map.values()).map(({ _count, _unit, ...rest }) => rest as unknown as T);
+  return Array.from(map.values()).map(({ _count, _unit, ...rest }) => rest);
 }
 
 function buildProfileEssentials(profile: Profile | null): Omit<DraftItem, 'key' | 'selected'>[] {
