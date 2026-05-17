@@ -81,7 +81,9 @@ function parseQty(qty: string): { count: number; unit: string } | null {
   return { count: parseFloat(m[1]), unit: m[2].trim().toLowerCase() };
 }
 
-function mergeItems<T extends { name: string; quantity: string }>(items: T[]): T[] {
+function mergeItems<T extends { name: string; quantity: string }>(
+  items: T[]
+): Array<Omit<T, "_count" | "_unit">> {
   const map = new Map<string, T & { _count: number; _unit: string }>();
   for (const item of items) {
     const key = item.name.toLowerCase().replace(/\s*\(.*?\)/g,'').replace(/[^a-z0-9\s]/g,'').trim();
