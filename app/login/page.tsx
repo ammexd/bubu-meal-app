@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
-
+export const dynamic = 'force-dynamic';
 type ImageState = 'default' | 'wrong' | 'correct';
 type Screen = 'login' | 'v2';
 
