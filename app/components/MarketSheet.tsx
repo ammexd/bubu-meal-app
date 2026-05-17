@@ -97,7 +97,7 @@ function mergeItems<T extends { name: string; quantity: string }>(items: T[]): T
       }
     }
   }
-return Array.from(map.values()).map(({ _count, _unit, ...rest }) => rest as unknown as T);
+  return Array.from(map.values()).map(({ _count, _unit, ...rest }) => rest as unknown as T);
 }
 
 function buildProfileEssentials(profile: Profile | null): Omit<DraftItem, 'key' | 'selected'>[] {
