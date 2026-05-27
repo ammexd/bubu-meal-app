@@ -10,7 +10,7 @@ interface Props {
 }
  
 type GoalType      = 'lose' | 'maintain' | 'gain';
-type Gender        = 'male' | 'female' | 'wahalla';
+type Gender        = 'male' | 'female' | 'other';
 type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
  
 const STEPS = ['gender', 'body', 'activity', 'goal', 'result'] as const;
@@ -237,7 +237,7 @@ export function OnboardingSheet({ dk, onDone, onSkip }: Props) {
                 {([
                   { id: 'female' as Gender, icon: '👩🏿', label: 'Female' },
                   { id: 'male'   as Gender, icon: '👨🏿', label: 'Male'   },
-                  { id: 'wahalla'  as Gender, icon: '🌈',  label: 'wahalla'  },
+                 { id: 'other' as Gender, icon: '🤷🏿', label: 'Wahalla 😅' }
                 ]).map(g => (
                   <button key={g.id} onClick={() => setGender(g.id)}
                     className={`py-6 rounded-2xl border text-center transition-all duration-200 active:scale-95 ${gender === g.id ? orange : pill}`}>
