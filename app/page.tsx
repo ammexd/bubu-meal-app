@@ -146,6 +146,16 @@ const [calGoalSource, setCalGoalSource] = useState<'program'|'profile'|'tdee'|'d
   const [water,       setWater      ] = useState(0);
   const [waterGoal,   setWaterGoal  ] = useState(8);
   const [loggedMeals, setLoggedMeals] = useState<MealLog[]>([]);
+  const [glassSizeMl,    setGlassSizeMl   ] = useState(250);
+const [showSizePicker, setShowSizePicker] = useState(false);
+
+const GLASS_SIZES = [
+  { ml: 150, label: '150ml', note: 'Small cup' },
+  { ml: 200, label: '200ml', note: 'Tea cup'   },
+  { ml: 250, label: '250ml', note: 'Standard'  },
+  { ml: 330, label: '330ml', note: 'Can size'  },
+  { ml: 500, label: '500ml', note: 'Big bottle' },
+];
   const [totalCal,    setTotalCal   ] = useState(0);
   const [streak,      setStreak     ] = useState(0);
 
@@ -197,7 +207,10 @@ const [calGoalSource, setCalGoalSource] = useState<'program'|'profile'|'tdee'|'d
 
       const wg = await getWaterGoal();
       if (mounted) setWaterGoal(wg);
-
+      // ADD: restore saved glass size
+if (profileData?.glass_size_ml) {
+        setGlassSizeMl(profileData.glass_size_ml);
+      }
       const summary = await getTodaySummary();
       if (!mounted) return;
       setTotalCal(summary.totalCal);
@@ -521,7 +534,7 @@ const handleGenerateMarket = async () => {
 
   // ── Settings save ──────────────────────────────────────────────────────────
   const saveSettings = async () => {
-    await saveProfile({ email, country, vibe, diet, dark_mode: darkMode, auto_refresh: autoRefresh, subscribed: isSubscribed });
+     await saveProfile({ email, country, vibe, diet, dark_mode: darkMode, auto_refresh: autoRefresh, subscribed: isSubscribed, glass_size_ml: glassSizeMl });
     // Re-fetch profile so Settings card stays accurate
     const updated = await getProfile();
     if (updated) setProfile(updated);
@@ -878,33 +891,134 @@ const handleUserReset = async () => {
           </div>
         )}
 
+      
         {/* ── Hydration ── */}
-        <section className="relative overflow-hidden rounded-[2rem] p-7 text-white" style={{ background:'linear-gradient(135deg, #0C1E30 0%, #0A2840 50%, #0E3350 100%)' }}>
-          <div className="absolute top-0 right-0 w-44 h-44 rounded-full pointer-events-none" style={{ background:'radial-gradient(circle, rgba(56,189,248,0.12) 0%, transparent 70%)' }}/>
-          <div className="relative">
-            <div className="flex justify-between items-start mb-5">
-              <div>
-                <SectionLabel dk={true}>💧 Hydration</SectionLabel>
-                <p className="text-[12px] text-blue-200/45 mt-1">{waterMsg[Math.min(water, 8)]}</p>
-              </div>
-              <div className="text-right">
-                <p className="font-serif text-4xl font-black text-[#7DD3FC]">{water}<span className="text-sm font-normal text-blue-300/35"> / {waterGoal}</span></p>
-                {water > 0 && <button onClick={async () => { await resetWater(); setWater(0); }} className="text-[9px] text-blue-300/25 hover:text-blue-300/55 transition-colors mt-1">reset</button>}
-              </div>
-            </div>
-            <div className="flex justify-between mb-5">
-              {Array.from({ length: waterGoal }, (_, i) => (
-                <button key={i} onClick={() => logGlass(i)} className="group transition-all duration-200 active:scale-90" style={{ transform: i < water ? 'scale(1.12)' : 'scale(1)' }}>
-                  <span className={`text-2xl block transition-all duration-200 group-hover:scale-125 ${i < water ? 'opacity-100' : 'opacity-20 grayscale'}`}>🥛</span>
-                  {i < water && <div className="mx-auto mt-0.5 w-1 h-1 rounded-full bg-[#38bdf8]"/>}
-                </button>
-              ))}
-            </div>
-            <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
-              <div className="h-full rounded-full transition-all duration-700" style={{ width:`${pct(water, waterGoal)}%`, background:'linear-gradient(90deg, #38bdf8, #7DD3FC)', boxShadow: water > 0 ? '0 0 8px rgba(56,189,248,0.45)' : 'none' }}/>
-            </div>
-          </div>
-        </section>
+<section className="relative overflow-hidden rounded-[2rem] p-7 text-white"
+  style={{ background: 'linear-gradient(135deg, #0C1E30 0%, #0A2840 50%, #0E3350 100%)' }}>
+  <div className="absolute top-0 right-0 w-44 h-44 rounded-full pointer-events-none"
+    style={{ background: 'radial-gradient(circle, rgba(56,189,248,0.12) 0%, transparent 70%)' }} />
+
+  <div className="relative">
+    {/* Header row */}
+    <div className="flex justify-between items-start mb-1">
+      <div>
+        <SectionLabel dk={true}>💧 Hydration</SectionLabel>
+        <p className="text-[12px] text-blue-200/45 mt-1">
+          {waterMsg[Math.min(water, 8)]}
+        </p>
+      </div>
+
+      {/* Volume counter + size picker trigger */}
+      <div className="text-right">
+        {/* Big number: consumed ml / goal ml */}
+        <p className="font-serif text-3xl font-black text-[#7DD3FC] leading-none">
+          {(water * glassSizeMl) >= 1000
+            ? `${((water * glassSizeMl) / 1000).toFixed(1)}L`
+            : `${water * glassSizeMl}ml`}
+          <span className="text-sm font-normal text-blue-300/35">
+            {' '}/ {(waterGoal * glassSizeMl) >= 1000
+              ? `${((waterGoal * glassSizeMl) / 1000).toFixed(1)}L`
+              : `${waterGoal * glassSizeMl}ml`}
+          </span>
+        </p>
+        {/* Sub-line: X / Y glasses */}
+        <p className="text-[10px] text-blue-300/40 font-semibold mt-0.5">
+          {water} / {waterGoal} glasses
+        </p>
+        {water > 0 && (
+          <button
+            onClick={async () => { await resetWater(); setWater(0); }}
+            className="text-[9px] text-blue-300/25 hover:text-blue-300/55 transition-colors mt-1 block ml-auto"
+          >
+            reset
+          </button>
+        )}
+      </div>
+    </div>
+
+    {/* Inline glass-size picker */}
+    <div className="mb-4 mt-3">
+      <button
+        onClick={() => setShowSizePicker(s => !s)}
+        className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-blue-300/50 hover:text-blue-300/80 transition-colors"
+      >
+        <span className="w-3.5 h-3.5 rounded-full border border-blue-300/30 flex items-center justify-center text-[8px]">
+          {showSizePicker ? '↑' : '⚙'}
+        </span>
+        Per glass: {glassSizeMl}ml
+        {glassSizeMl === 250 && <span className="text-blue-300/30 normal-case font-normal">· standard</span>}
+      </button>
+
+      {showSizePicker && (
+        <div className="flex gap-2 mt-2.5 flex-wrap">
+          {[
+            { ml: 150, note: 'Small cup'   },
+            { ml: 200, note: 'Tea cup'     },
+            { ml: 250, note: 'Standard'    },
+            { ml: 330, note: 'Can size'    },
+            { ml: 500, note: 'Bottle'      },
+          ].map(s => (
+            <button
+              key={s.ml}
+              onClick={() => {
+                setGlassSizeMl(s.ml);
+                setShowSizePicker(false);
+                // Persist immediately
+                saveProfile({ glass_size_ml: s.ml });
+              }}
+              className={`flex flex-col items-center px-3 py-2 rounded-xl border transition-all active:scale-95 ${
+                glassSizeMl === s.ml
+                  ? 'bg-[#38bdf8]/20 border-[#38bdf8]/50 text-[#7DD3FC]'
+                  : 'bg-white/5 border-white/10 text-blue-300/50 hover:bg-white/10'
+              }`}
+            >
+              <span className="text-[11px] font-black">{s.ml}ml</span>
+              <span className="text-[8px] font-medium opacity-60 mt-0.5">{s.note}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {/* Glass icons */}
+    <div className="flex justify-between mb-5">
+      {Array.from({ length: waterGoal }, (_, i) => (
+        <button
+          key={i}
+          onClick={() => logGlass(i)}
+          className="group transition-all duration-200 active:scale-90"
+          style={{ transform: i < water ? 'scale(1.12)' : 'scale(1)' }}
+        >
+          <span className={`text-2xl block transition-all duration-200 group-hover:scale-125 ${
+            i < water ? 'opacity-100' : 'opacity-20 grayscale'
+          }`}>🥛</span>
+          {i < water && (
+            <div className="mx-auto mt-0.5 w-1 h-1 rounded-full bg-[#38bdf8]" />
+          )}
+        </button>
+      ))}
+    </div>
+
+    {/* Progress bar */}
+    <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
+      <div
+        className="h-full rounded-full transition-all duration-700"
+        style={{
+          width: `${pct(water, waterGoal)}%`,
+          background: 'linear-gradient(90deg, #38bdf8, #7DD3FC)',
+          boxShadow: water > 0 ? '0 0 8px rgba(56,189,248,0.45)' : 'none',
+        }}
+      />
+    </div>
+
+    {/* Volume label under bar */}
+    {water > 0 && (
+      <p className="text-[9px] text-blue-300/35 font-semibold mt-1.5 text-center">
+        {water * glassSizeMl}ml consumed of {waterGoal * glassSizeMl}ml daily target
+      </p>
+    )}
+  </div>
+</section>
 
         {/* ── Email capture ── */}
         <section className={`${card} ${cardGlow} border rounded-3xl p-6`}>

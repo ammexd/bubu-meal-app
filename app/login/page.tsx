@@ -19,6 +19,8 @@ const V2_NODES = [
 ];
 
 export default function LoginPage() {
+    console.log('SUPABASE URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+  console.log('ANON KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   const router = useRouter();
   const [screen, setScreen] = useState<Screen>('login');
   const [password, setPassword] = useState('');

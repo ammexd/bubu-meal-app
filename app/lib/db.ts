@@ -24,6 +24,7 @@ export interface Profile {
   goal_type?:     'lose' | 'maintain' | 'gain';
   bmi?:           number;           // computed by DB trigger
   tdee?:          number;           // computed by DB trigger
+  glass_size_ml?: number;
   // Goals
   daily_cal_goal?: number;          // user-set or trigger-computed
   // App state
